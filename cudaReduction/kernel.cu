@@ -53,16 +53,6 @@ void reduce(int type, int size, int threads, int blocks, double *d_idata, double
 	case SUMMATION:
 		reduceKernel << <dimGrid, dimBlock, smemSize >> > (getSum, d_idata, d_odata, size);
 		break;
-		//case MEAN:
-		//	reduceKernel << <dimGrid, dimBlock, smemSize >> > (getSum, d_idata, d_odata, size);
-		//	break;
-		//case SIGMA2:
-		//	reduceKernel <<<dimGrid, dimBlock, smemSize>>> (getSum, d_idata, d_odata, size);
-		//	break;
-		//case SIGMA4:
-		//	reduceKernel <<<dimGrid, dimBlock, smemSize>>> (getSum, d_idata, d_odata, size);
-		//	break;
-
 
 	default:
 		break;
