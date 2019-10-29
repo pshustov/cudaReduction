@@ -7,7 +7,7 @@ double reductionSum(int size, double *inData, int maxThreads, int s);
 
 int main()
 {
-	int N = 1 << 29;
+	int N = 1 << 24;
 
 	double *arrHost = new double[N];
 	for (int i = 0; i < N; i++)
