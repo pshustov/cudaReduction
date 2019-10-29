@@ -6,6 +6,9 @@
 #include <stdio.h>
 #include <cstdlib>
 #include <cooperative_groups.h>
+#include <ctime>
+#include <iostream>
+//#include "cooperative_groups_helpers.h"
 //#include "cooperative_groups_helpers.h"
 
 
