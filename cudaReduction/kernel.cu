@@ -106,7 +106,7 @@ __device__ double thread_sum(double *input, int n)
 		i < n / 4;
 		i += blockDim.x * gridDim.x)
 	{
-		int4 in = ((int4*)input)[i];
+		double4 in = ((double4*)input)[i];
 		sum += in.x + in.y + in.z + in.w;
 	}
 	return sum;
