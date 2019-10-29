@@ -8,6 +8,7 @@
 #include <cooperative_groups.h>
 #include <ctime>
 #include <iostream>
+#include "device_atomic_functions.hpp"
 //#include "cooperative_groups_helpers.h"
 //#include "cooperative_groups_helpers.h"
 
