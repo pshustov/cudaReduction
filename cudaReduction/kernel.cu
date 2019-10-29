@@ -1,121 +1,73 @@
+#include "reduction.h"
 
-#include "cuda_runtime.h"
-#include "device_launch_parameters.h"
+namespace cg = cooperative_groups;
 
-#include <stdio.h>
-
-cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size);
-
-__global__ void addKernel(int *c, const int *a, const int *b)
-{
-    int i = threadIdx.x;
-    c[i] = a[i] + b[i];
+__device__ __forceinline__ double getMax(double x, double y) {
+	return ((x > y) ? x : y);
 }
 
-int main()
-{
-    const int arraySize = 5;
-    const int a[arraySize] = { 1, 2, 3, 4, 5 };
-    const int b[arraySize] = { 10, 20, 30, 40, 50 };
-    int c[arraySize] = { 0 };
-
-    // Add vectors in parallel.
-    cudaError_t cudaStatus = addWithCuda(c, a, b, arraySize);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "addWithCuda failed!");
-        return 1;
-    }
-
-    printf("{1,2,3,4,5} + {10,20,30,40,50} = {%d,%d,%d,%d,%d}\n",
-        c[0], c[1], c[2], c[3], c[4]);
-
-    // cudaDeviceReset must be called before exiting in order for profiling and
-    // tracing tools such as Nsight and Visual Profiler to show complete traces.
-    cudaStatus = cudaDeviceReset();
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaDeviceReset failed!");
-        return 1;
-    }
-
-    return 0;
+__device__ __forceinline__ double getSum(double x, double y) {
+	return x + y;
 }
 
-// Helper function for using CUDA to add vectors in parallel.
-cudaError_t addWithCuda(int *c, const int *a, const int *b, unsigned int size)
+__global__ void reduceKernel(double(*f)(double x, double y), double *g_idata, double *g_odata, unsigned int n)
 {
-    int *dev_a = 0;
-    int *dev_b = 0;
-    int *dev_c = 0;
-    cudaError_t cudaStatus;
+	cg::thread_block cta = cg::this_thread_block();
+	extern __shared__ double sdata[];
 
-    // Choose which GPU to run on, change this on a multi-GPU system.
-    cudaStatus = cudaSetDevice(0);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaSetDevice failed!  Do you have a CUDA-capable GPU installed?");
-        goto Error;
-    }
+	unsigned int tid = threadIdx.x;
+	unsigned int i = blockIdx.x*blockDim.x + threadIdx.x;
 
-    // Allocate GPU buffers for three vectors (two input, one output)    .
-    cudaStatus = cudaMalloc((void**)&dev_c, size * sizeof(int));
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMalloc failed!");
-        goto Error;
-    }
+	sdata[tid] = (i < n) ? g_idata[i] : 0;
 
-    cudaStatus = cudaMalloc((void**)&dev_a, size * sizeof(int));
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMalloc failed!");
-        goto Error;
-    }
+	cta.sync();
 
-    cudaStatus = cudaMalloc((void**)&dev_b, size * sizeof(int));
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMalloc failed!");
-        goto Error;
-    }
 
-    // Copy input vectors from host memory to GPU buffers.
-    cudaStatus = cudaMemcpy(dev_a, a, size * sizeof(int), cudaMemcpyHostToDevice);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed!");
-        goto Error;
-    }
+	for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1)
+	{
+		if (tid < s)
+		{
+			sdata[tid] = (*f)(sdata[tid], sdata[tid + s]);
+		}
 
-    cudaStatus = cudaMemcpy(dev_b, b, size * sizeof(int), cudaMemcpyHostToDevice);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed!");
-        goto Error;
-    }
+		cta.sync();
+	}
 
-    // Launch a kernel on the GPU with one thread for each element.
-    addKernel<<<1, size>>>(dev_c, dev_a, dev_b);
-
-    // Check for any errors launching the kernel
-    cudaStatus = cudaGetLastError();
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "addKernel launch failed: %s\n", cudaGetErrorString(cudaStatus));
-        goto Error;
-    }
-    
-    // cudaDeviceSynchronize waits for the kernel to finish, and returns
-    // any errors encountered during the launch.
-    cudaStatus = cudaDeviceSynchronize();
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaDeviceSynchronize returned error code %d after launching addKernel!\n", cudaStatus);
-        goto Error;
-    }
-
-    // Copy output vector from GPU buffer to host memory.
-    cudaStatus = cudaMemcpy(c, dev_c, size * sizeof(int), cudaMemcpyDeviceToHost);
-    if (cudaStatus != cudaSuccess) {
-        fprintf(stderr, "cudaMemcpy failed!");
-        goto Error;
-    }
-
-Error:
-    cudaFree(dev_c);
-    cudaFree(dev_a);
-    cudaFree(dev_b);
-    
-    return cudaStatus;
+	// write result for this block to global mem
+	if (tid == 0) g_odata[blockIdx.x] = sdata[0];
 }
+
+
+void reduce(int type, int size, int threads, int blocks, double *d_idata, double *d_odata)
+{
+	dim3 dimBlock(threads, 1, 1);
+	dim3 dimGrid(blocks, 1, 1);
+
+	int smemSize = threads * sizeof(double);
+
+	switch (type)
+	{
+	case MAXIMUM:
+		reduceKernel << <dimGrid, dimBlock, smemSize >> > (getMax, d_idata, d_odata, size);
+		break;
+	case SUMMATION:
+		reduceKernel << <dimGrid, dimBlock, smemSize >> > (getSum, d_idata, d_odata, size);
+		break;
+		//case MEAN:
+		//	reduceKernel << <dimGrid, dimBlock, smemSize >> > (getSum, d_idata, d_odata, size);
+		//	break;
+		//case SIGMA2:
+		//	reduceKernel <<<dimGrid, dimBlock, smemSize>>> (getSum, d_idata, d_odata, size);
+		//	break;
+		//case SIGMA4:
+		//	reduceKernel <<<dimGrid, dimBlock, smemSize>>> (getSum, d_idata, d_odata, size);
+		//	break;
+
+
+	default:
+		break;
+	}
+}
+
+
+
