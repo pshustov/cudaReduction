@@ -61,6 +61,24 @@ int main()
 	}
 	durationAll = (std::clock() - startAll) / (double)CLOCKS_PER_SEC; std::cout << "Full duration:" << durationAll << std::endl;
 
+
+	witchKernel = 4;
+	startAll = std::clock();
+	for (int i = 0; i < maxThreadsM.size(); i++)
+	{
+		cudaEventRecord(start);
+		max = reductionMax(witchKernel, N, arrDev, maxThreadsM[i], cpuFinalThresholdM[i]);
+		sum = reductionSum(witchKernel, N, arrDev, maxThreadsM[i], cpuFinalThresholdM[i]);
+		cudaEventRecord(stop);
+		cudaEventSynchronize(stop);
+		cudaEventElapsedTime(&duration, start, stop);
+		std::cout << maxThreadsM[i] << "\t" << cpuFinalThresholdM[i] << "\t" << max << "\t" << sum << "\t" << duration << std::endl;
+	}
+	durationAll = (std::clock() - startAll) / (double)CLOCKS_PER_SEC; std::cout << "Full duration:" << durationAll << std::endl;
+
+
+
+
 	delete[] arrHost;
 	cudaFree(arrDev);
 
@@ -88,6 +106,11 @@ bool isPow2(unsigned int x)
 
 void getNumBlocksAndThreads(int whichKernel, int n, int maxThreads, int &blocks, int &threads)
 {
+	cudaDeviceProp prop;
+	int device;
+	cudaGetDevice(&device);
+	cudaGetDeviceProperties(&prop, device);
+
     if (whichKernel < 3)
     {
         threads = (n < maxThreads) ? nextPow2(n) : maxThreads;
@@ -98,6 +121,20 @@ void getNumBlocksAndThreads(int whichKernel, int n, int maxThreads, int &blocks,
         threads = (n < maxThreads*2) ? nextPow2((n + 1)/ 2) : maxThreads;
         blocks = (n + (threads * 2 - 1)) / (threads * 2);
     }
+
+	if ((float)threads*blocks > (float)prop.maxGridSize[0] * prop.maxThreadsPerBlock)
+	{
+		printf("n is too large, please choose a smaller number!\n");
+	}
+
+	if (blocks > prop.maxGridSize[0])
+	{
+		printf("Grid size <%d> exceeds the device capability <%d>, set block size as %d (original %d)\n",
+			blocks, prop.maxGridSize[0], threads * 2, threads);
+
+		blocks /= 2;
+		threads *= 2;
+	}
 }
 
 double reductionMax(int witchKernel, int size, double *inData, int maxThreads, int cpuFinalThreshold)
@@ -124,7 +161,7 @@ double reductionMax(int witchKernel, int size, double *inData, int maxThreads, i
 	{
 		cudaMemcpy(inData_dev, outData_dev, blocks * sizeof(double), cudaMemcpyDeviceToDevice);
 
-		getNumBlocksAndThreads(3, s, maxThreads, blocks, threads);
+		getNumBlocksAndThreads(witchKernel, s, maxThreads, blocks, threads);
 		reduce(witchKernel, MAXIMUM, s, threads, blocks, inData_dev, outData_dev);
 
 		s = blocks;
