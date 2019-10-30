@@ -1,8 +1,8 @@
 #include "reduction.h"
 
-void reduce(int type, int size, int threads, int blocks, double *d_idata, double *d_odata);
-double reductionMax(int size, double *inData, int maxThreads, int cpuFinalThreshold);
-double reductionSum(int size, double *inData, int maxThreads, int cpuFinalThreshold);
+void reduce(int witchKernel, int type, int size, int threads, int blocks, double *d_idata, double *d_odata);
+double reductionMax(int witchKernel, int size, double *inData, int maxThreads, int cpuFinalThreshold);
+double reductionSum(int witchKernel, int size, double *inData, int maxThreads, int cpuFinalThreshold);
 
 int main()
 {
@@ -19,140 +19,47 @@ int main()
 
 	cudaMemcpy(arrDev, arrHost, N * sizeof(double), cudaMemcpyHostToDevice);
 
-
-	int maxThreads, cpuFinalThreshold;
+	std::vector<int> maxThreadsM = { 128, 128, 128, 128, 256, 256, 256, 256, 512, 512, 512, 512 };
+	std::vector<int> cpuFinalThresholdM = { 32, 64, 128, 256, 32, 64, 128, 256, 32, 64, 128, 256 }; 
 	double max, sum;
+	int witchKernel;
+
+
 	std::clock_t  startAll;
 	double durationAll;
-	startAll = std::clock();
 
 	cudaEvent_t start, stop;
-	cudaEventCreate(&start);
-	cudaEventCreate(&stop);
-	float duration;
+	cudaEventCreate(&start); cudaEventCreate(&stop); float duration;
 
 
-	cudaEventRecord(start);
-	maxThreads = 128, cpuFinalThreshold = 32;
-	max = reductionMax(N, arrDev, maxThreads, cpuFinalThreshold);
-	sum = reductionSum(N, arrDev, maxThreads, cpuFinalThreshold);
-	cudaEventRecord(stop);
-	cudaEventSynchronize(stop);
-	cudaEventElapsedTime(&duration, start, stop);
-	std::cout << maxThreads << "\t" << cpuFinalThreshold << "\t" << max << "\t" << sum << "\t" << duration << std::endl;
+	witchKernel = 2;
+	startAll = std::clock();
+	for (int i = 0; i < maxThreadsM.size(); i++)
+	{
+		cudaEventRecord(start);
+		max = reductionMax(witchKernel, N, arrDev, maxThreadsM[i], cpuFinalThresholdM[i]);
+		sum = reductionSum(witchKernel, N, arrDev, maxThreadsM[i], cpuFinalThresholdM[i]);
+		cudaEventRecord(stop);
+		cudaEventSynchronize(stop);
+		cudaEventElapsedTime(&duration, start, stop);
+		std::cout << maxThreadsM[i] << "\t" << cpuFinalThresholdM[i] << "\t" << max << "\t" << sum << "\t" << duration << std::endl;
+	}
+	durationAll = (std::clock() - startAll) / (double)CLOCKS_PER_SEC; std::cout << "Full duration:" << durationAll << std::endl;
 
 
-	cudaEventRecord(start);
-	maxThreads = 128, cpuFinalThreshold = 64;
-	max = reductionMax(N, arrDev, maxThreads, cpuFinalThreshold);
-	sum = reductionSum(N, arrDev, maxThreads, cpuFinalThreshold);
-	cudaEventRecord(stop);
-	cudaEventSynchronize(stop);
-	cudaEventElapsedTime(&duration, start, stop);
-	std::cout << maxThreads << "\t" << cpuFinalThreshold << "\t" << max << "\t" << sum << "\t" << duration << std::endl;
-
-
-	cudaEventRecord(start);
-	maxThreads = 128, cpuFinalThreshold = 128;
-	max = reductionMax(N, arrDev, maxThreads, cpuFinalThreshold);
-	sum = reductionSum(N, arrDev, maxThreads, cpuFinalThreshold);
-	cudaEventRecord(stop);
-	cudaEventSynchronize(stop);
-	cudaEventElapsedTime(&duration, start, stop);
-	std::cout << maxThreads << "\t" << cpuFinalThreshold << "\t" << max << "\t" << sum << "\t" << duration << std::endl;
-
-
-	cudaEventRecord(start);
-	maxThreads = 128, cpuFinalThreshold = 256;
-	max = reductionMax(N, arrDev, maxThreads, cpuFinalThreshold);
-	sum = reductionSum(N, arrDev, maxThreads, cpuFinalThreshold);
-	cudaEventRecord(stop);
-	cudaEventSynchronize(stop);
-	cudaEventElapsedTime(&duration, start, stop);
-	std::cout << maxThreads << "\t" << cpuFinalThreshold << "\t" << max << "\t" << sum << "\t" << duration << std::endl;
-
-
-	cudaEventRecord(start);
-	maxThreads = 256, cpuFinalThreshold = 32;
-	max = reductionMax(N, arrDev, maxThreads, cpuFinalThreshold);
-	sum = reductionSum(N, arrDev, maxThreads, cpuFinalThreshold);
-	cudaEventRecord(stop);
-	cudaEventSynchronize(stop);
-	cudaEventElapsedTime(&duration, start, stop);
-	std::cout << maxThreads << "\t" << cpuFinalThreshold << "\t" << max << "\t" << sum << "\t" << duration << std::endl;
-
-
-	cudaEventRecord(start);
-	maxThreads = 256, cpuFinalThreshold = 64;
-	max = reductionMax(N, arrDev, maxThreads, cpuFinalThreshold);
-	sum = reductionSum(N, arrDev, maxThreads, cpuFinalThreshold);
-	cudaEventRecord(stop);
-	cudaEventSynchronize(stop);
-	cudaEventElapsedTime(&duration, start, stop);
-	std::cout << maxThreads << "\t" << cpuFinalThreshold << "\t" << max << "\t" << sum << "\t" << duration << std::endl;
-
-
-	cudaEventRecord(start);
-	maxThreads = 256, cpuFinalThreshold = 128;
-	max = reductionMax(N, arrDev, maxThreads, cpuFinalThreshold);
-	sum = reductionSum(N, arrDev, maxThreads, cpuFinalThreshold);
-	cudaEventRecord(stop);
-	cudaEventSynchronize(stop);
-	cudaEventElapsedTime(&duration, start, stop);
-	std::cout << maxThreads << "\t" << cpuFinalThreshold << "\t" << max << "\t" << sum << "\t" << duration << std::endl;
-
-
-	cudaEventRecord(start);
-	maxThreads = 256, cpuFinalThreshold = 256;
-	max = reductionMax(N, arrDev, maxThreads, cpuFinalThreshold);
-	sum = reductionSum(N, arrDev, maxThreads, cpuFinalThreshold);
-	cudaEventRecord(stop);
-	cudaEventSynchronize(stop);
-	cudaEventElapsedTime(&duration, start, stop);
-	std::cout << maxThreads << "\t" << cpuFinalThreshold << "\t" << max << "\t" << sum << "\t" << duration << std::endl;
-
-	cudaEventRecord(start);
-	maxThreads = 512, cpuFinalThreshold = 32;
-	max = reductionMax(N, arrDev, maxThreads, cpuFinalThreshold);
-	sum = reductionSum(N, arrDev, maxThreads, cpuFinalThreshold);
-	cudaEventRecord(stop);
-	cudaEventSynchronize(stop);
-	cudaEventElapsedTime(&duration, start, stop);
-	std::cout << maxThreads << "\t" << cpuFinalThreshold << "\t" << max << "\t" << sum << "\t" << duration << std::endl;
-
-
-	cudaEventRecord(start);
-	maxThreads = 512, cpuFinalThreshold = 64;
-	max = reductionMax(N, arrDev, maxThreads, cpuFinalThreshold);
-	sum = reductionSum(N, arrDev, maxThreads, cpuFinalThreshold);
-	cudaEventRecord(stop);
-	cudaEventSynchronize(stop);
-	cudaEventElapsedTime(&duration, start, stop);
-	std::cout << maxThreads << "\t" << cpuFinalThreshold << "\t" << max << "\t" << sum << "\t" << duration << std::endl;
-
-
-	cudaEventRecord(start);
-	maxThreads = 512, cpuFinalThreshold = 128;
-	max = reductionMax(N, arrDev, maxThreads, cpuFinalThreshold);
-	sum = reductionSum(N, arrDev, maxThreads, cpuFinalThreshold);
-	cudaEventRecord(stop);
-	cudaEventSynchronize(stop);
-	cudaEventElapsedTime(&duration, start, stop);
-	std::cout << maxThreads << "\t" << cpuFinalThreshold << "\t" << max << "\t" << sum << "\t" << duration << std::endl;
-
-
-	cudaEventRecord(start);
-	maxThreads = 512, cpuFinalThreshold = 256;
-	max = reductionMax(N, arrDev, maxThreads, cpuFinalThreshold);
-	sum = reductionSum(N, arrDev, maxThreads, cpuFinalThreshold);
-	cudaEventRecord(stop);
-	cudaEventSynchronize(stop);
-	cudaEventElapsedTime(&duration, start, stop);
-	std::cout << maxThreads << "\t" << cpuFinalThreshold << "\t" << max << "\t" << sum << "\t" << duration << std::endl;
-
-	durationAll = (std::clock() - startAll) / (double)CLOCKS_PER_SEC;
-	std::cout << "Full duration:" << durationAll << std::endl;
-
+	witchKernel = 3;
+	startAll = std::clock();
+	for (int i = 0; i < maxThreadsM.size(); i++)
+	{
+		cudaEventRecord(start);
+		max = reductionMax(witchKernel, N, arrDev, maxThreadsM[i], cpuFinalThresholdM[i]);
+		sum = reductionSum(witchKernel, N, arrDev, maxThreadsM[i], cpuFinalThresholdM[i]);
+		cudaEventRecord(stop);
+		cudaEventSynchronize(stop);
+		cudaEventElapsedTime(&duration, start, stop);
+		std::cout << maxThreadsM[i] << "\t" << cpuFinalThresholdM[i] << "\t" << max << "\t" << sum << "\t" << duration << std::endl;
+	}
+	durationAll = (std::clock() - startAll) / (double)CLOCKS_PER_SEC; std::cout << "Full duration:" << durationAll << std::endl;
 
 	delete[] arrHost;
 	cudaFree(arrDev);
@@ -179,13 +86,21 @@ bool isPow2(unsigned int x)
 	return ((x&(x - 1)) == 0);
 }
 
-void getNumBlocksAndThreads(int n, int maxThreads, int &blocks, int &threads)
+void getNumBlocksAndThreads(int whichKernel, int n, int maxThreads, int &blocks, int &threads)
 {
-	threads = (n < maxThreads) ? nextPow2(n) : maxThreads;
-	blocks = (n + threads - 1) / threads;
+    if (whichKernel < 3)
+    {
+        threads = (n < maxThreads) ? nextPow2(n) : maxThreads;
+        blocks = (n + threads - 1) / threads;
+    }
+    else
+    {
+        threads = (n < maxThreads*2) ? nextPow2((n + 1)/ 2) : maxThreads;
+        blocks = (n + (threads * 2 - 1)) / (threads * 2);
+    }
 }
 
-double reductionMax(int size, double *inData, int maxThreads, int cpuFinalThreshold)
+double reductionMax(int witchKernel, int size, double *inData, int maxThreads, int cpuFinalThreshold)
 {
 	//int cpuFinalThreshold = 256;
 	//int maxThreads = 256;
@@ -193,7 +108,7 @@ double reductionMax(int size, double *inData, int maxThreads, int cpuFinalThresh
 	if (!isPow2(size)) throw;
 
 	int blocks = 0, threads = 0;
-	getNumBlocksAndThreads(size, maxThreads, blocks, threads);
+	getNumBlocksAndThreads(witchKernel, size, maxThreads, blocks, threads);
 
 	double *inData_dev = NULL;
 	double *outData_dev = NULL;
@@ -201,7 +116,7 @@ double reductionMax(int size, double *inData, int maxThreads, int cpuFinalThresh
 	cudaMalloc((void **)&inData_dev, blocks * sizeof(double));
 	cudaMalloc((void **)&outData_dev, blocks * sizeof(double));
 
-	reduce(MAXIMUM, size, threads, blocks, inData, outData_dev);
+	reduce(witchKernel, MAXIMUM, size, threads, blocks, inData, outData_dev);
 	cudaDeviceSynchronize();
 
 	int s = blocks;
@@ -209,8 +124,8 @@ double reductionMax(int size, double *inData, int maxThreads, int cpuFinalThresh
 	{
 		cudaMemcpy(inData_dev, outData_dev, blocks * sizeof(double), cudaMemcpyDeviceToDevice);
 
-		getNumBlocksAndThreads(s, maxThreads, blocks, threads);
-		reduce(MAXIMUM, s, threads, blocks, inData_dev, outData_dev);
+		getNumBlocksAndThreads(3, s, maxThreads, blocks, threads);
+		reduce(witchKernel, MAXIMUM, s, threads, blocks, inData_dev, outData_dev);
 
 		s = blocks;
 	}
@@ -232,7 +147,7 @@ double reductionMax(int size, double *inData, int maxThreads, int cpuFinalThresh
 	return result;
 }
 
-double reductionSum(int size, double *inData, int maxThreads, int cpuFinalThreshold)
+double reductionSum(int witchKernel, int size, double *inData, int maxThreads, int cpuFinalThreshold)
 {
 
 	//int cpuFinalThreshold = 256;
@@ -241,7 +156,7 @@ double reductionSum(int size, double *inData, int maxThreads, int cpuFinalThresh
 	if (!isPow2(size)) throw;
 
 	int blocks = 0, threads = 0;
-	getNumBlocksAndThreads(size, maxThreads, blocks, threads);
+	getNumBlocksAndThreads(witchKernel, size, maxThreads, blocks, threads);
 
 
 	double *inData_dev = NULL;
@@ -250,7 +165,7 @@ double reductionSum(int size, double *inData, int maxThreads, int cpuFinalThresh
 	cudaMalloc((void **)&inData_dev, blocks * sizeof(double));
 	cudaMalloc((void **)&outData_dev, blocks * sizeof(double));
 
-	reduce(SUMMATION, size, threads, blocks, inData, outData_dev);
+	reduce(witchKernel, SUMMATION, size, threads, blocks, inData, outData_dev);
 	cudaDeviceSynchronize();
 
 	int s = blocks;
@@ -258,8 +173,8 @@ double reductionSum(int size, double *inData, int maxThreads, int cpuFinalThresh
 	{
 		cudaMemcpy(inData_dev, outData_dev, blocks * sizeof(double), cudaMemcpyDeviceToDevice);
 
-		getNumBlocksAndThreads(s, maxThreads, blocks, threads);
-		reduce(SUMMATION, s, threads, blocks, inData_dev, outData_dev);
+		getNumBlocksAndThreads(2, s, maxThreads, blocks, threads);
+		reduce(witchKernel, SUMMATION, s, threads, blocks, inData_dev, outData_dev);
 
 		s = blocks;
 	}
