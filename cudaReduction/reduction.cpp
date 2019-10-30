@@ -77,6 +77,21 @@ int main()
 	durationAll = (std::clock() - startAll) / (double)CLOCKS_PER_SEC; std::cout << "Full duration:" << durationAll << std::endl;
 
 
+	witchKernel = 5;
+	startAll = std::clock();
+	for (int i = 0; i < maxThreadsM.size(); i++)
+	{
+		cudaEventRecord(start);
+		max = reductionMax(witchKernel, N, arrDev, maxThreadsM[i], cpuFinalThresholdM[i]);
+		sum = reductionSum(witchKernel, N, arrDev, maxThreadsM[i], cpuFinalThresholdM[i]);
+		cudaEventRecord(stop);
+		cudaEventSynchronize(stop);
+		cudaEventElapsedTime(&duration, start, stop);
+		std::cout << maxThreadsM[i] << "\t" << cpuFinalThresholdM[i] << "\t" << max << "\t" << sum << "\t" << duration << std::endl;
+	}
+	durationAll = (std::clock() - startAll) / (double)CLOCKS_PER_SEC; std::cout << "Full duration:" << durationAll << std::endl;
+
+
 
 
 	delete[] arrHost;
