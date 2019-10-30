@@ -154,7 +154,6 @@ __global__ void reduceKernelMax5(double *g_idata, double *g_odata, unsigned int 
 
 	if (tid == 0) g_odata[blockIdx.x] = result;
 }
-template <unsigned int blockSize>
 
 
 
